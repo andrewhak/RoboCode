@@ -7,6 +7,7 @@ def parse_can_message(line):
     parts = line.split(' ')
     arbitration_id = int(parts[0][:2], 16)
     data = [int(parts[0][i:i+2], 16) for i in range(2, len(parts[0]), 2)] + [int(byte, 16) for byte in parts[1:]]
+    print(data)
     return can.Message(arbitration_id=arbitration_id, data=data, is_extended_id=False)
 
 def calculate_crc(arbitration_id, status):

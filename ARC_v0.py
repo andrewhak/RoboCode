@@ -25,12 +25,23 @@ bus = can.interface.Bus(bustype='slcan', channel='COM3', bitrate=500000)
 speed = 0x0258
 acc = 0x02
 arbitration_id = 1
-print(arbitration_id)
+# print(arbitration_id)
 # data = bytearray[0xF5,0x02,0x58,acc,0x40,0x00,0x92]
-data = bytearray([245,2,58,2,0,0,40,92])
-print(data)
+data = bytearray([245,2,58,2,0,40,0,92])
+data2int = [1,245,2,58,2,80,0,0]
 
 
-message = can.Message(arbitration_id=arbitration_id, data=data, is_extended_id=False)
-print(message)
+
+data2 = bytearray(data2int)
+CRCs = calculate_crc(data2)
+print(CRCs)
+# data3 = data2int[1:8]
+# print(data3)
+data3 = []
+data2int.append(CRCs)
+
+
+
+message = can.Message(arbitration_id=arbitration_id, data=data2int[1:], is_extended_id=False)
+# print(message)
 bus.send(message)
