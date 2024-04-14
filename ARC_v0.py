@@ -1,7 +1,7 @@
 import can
 import time
 
-# Program to test sending commands
+
 def getAxisPos(axis_id):
     print('n/a')
 
@@ -22,26 +22,37 @@ def calculate_crc(data):
 
 bus = can.interface.Bus(bustype='slcan', channel='COM3', bitrate=500000)
 
-speed = 0x0258
-acc = 0x02
+speed = 600
+acc = 2
+pos = 16384
+spdhex = hex(600)
+spdform = format(speed, '04X')
+poshex = format(pos, '06X')
 arbitration_id = 1
-# print(arbitration_id)
-# data = bytearray[0xF5,0x02,0x58,acc,0x40,0x00,0x92]
-data = bytearray([245,2,58,2,0,40,0,92])
-data2int = [1,245,2,58,2,80,0,0]
+cmd = format(245, '02X')
+
+data = [arbitration_id,cmd,int(spdform[-4:-2]),int(spdform[-2:]),hex(acc),hex(poshex[-6:-4]),poshex[-4:-2],poshex[-2:]]
+
+print(poshex)
+print(poshex[-2:])
+print(poshex[-4:-2])
+print(spdhex)
+print(spdform)
+print(data)
+
+
+data2int = [arbitration_id,245,2,58,2,0,64,0]
 
 
 
 data2 = bytearray(data2int)
+print(data2)
 CRCs = calculate_crc(data2)
-print(CRCs)
-# data3 = data2int[1:8]
-# print(data3)
-data3 = []
 data2int.append(CRCs)
 
+print(data2int)
 
 
 message = can.Message(arbitration_id=arbitration_id, data=data2int[1:], is_extended_id=False)
-# print(message)
+print(message)
 bus.send(message)
