@@ -5,16 +5,28 @@ import time
 def getAxisPos(axis_id):
     print('n/a')
 
-def genMove1Command(axis_id, speed, acceleration):
-    can_id = format(axis_id, '02X')
-    speed_hex = format(speed, '04X')
-    accel_hex = format(acceleration, '02X')
-    print('move command')
+def genMove1Command(axis_id,pos, speed, acc):
+    pos = int((pos*16384)/360)
+    if pos < 0:
+        pos = (abs(pos) ^ 0xFFFFFF) + 1
 
-    parts = line.split(' ')
-    arbitration_id = int(parts[0][:2], 16)
-    data = [int(parts[0][i:i+2], 16) for i in range(2, len(parts[0]), 2)] + [int(byte, 16) for byte in parts[1:]]
-    return can.Message(arbitration_id=arbitration_id, data=data, is_extended_id=False)
+    cmd = 245
+
+    fullcommand = []
+    fullcommand.append(axis_id)
+    fullcommand.append(cmd)
+    res1 = [speed>>(8*(i-1)) & 0xFF for i in range(2,0,-1)]
+    fullcommand += (res1)
+    fullcommand.append(acc)
+    res2 = [pos>>(8*(i-1)) & 0xFF for i in range(3,0,-1)]
+    fullcommand += (res2)
+    print(calculate_crc(fullcommand))
+    fullcommand.append(calculate_crc(fullcommand))
+    print(fullcommand)
+    return can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+
+
+
 
 def calculate_crc(data):
     crc = sum(data) & 0xFF
@@ -22,37 +34,29 @@ def calculate_crc(data):
 
 bus = can.interface.Bus(bustype='slcan', channel='COM3', bitrate=500000)
 
+arbitration_id = 1
+cmd = 245
 speed = 600
 acc = 2
-pos = 16384
-spdhex = hex(600)
-spdform = format(speed, '04X')
-poshex = format(pos, '06X')
-arbitration_id = 1
-cmd = format(245, '02X')
+pos = -100
 
-data = [arbitration_id,cmd,int(spdform[-4:-2]),int(spdform[-2:]),hex(acc),hex(poshex[-6:-4]),poshex[-4:-2],poshex[-2:]]
+fullcommand = []
+fullcommand.append(arbitration_id)
+fullcommand.append(cmd)
+res1 = [speed//2**(8*(i-1)) % 2**(8*(i)) for i in range(2,0,-1)]
 
-print(poshex)
-print(poshex[-2:])
-print(poshex[-4:-2])
-print(spdhex)
-print(spdform)
-print(data)
+fullcommand += (res1)
+fullcommand.append(acc)
 
-
-data2int = [arbitration_id,245,2,58,2,0,64,0]
+res2 = [pos//2**(8*(i-1)) % 2**(8*(i)) for i in range(3,0,-1)]
+fullcommand += (res2)
+fullcommand.append(calculate_crc(fullcommand))
 
 
 
-data2 = bytearray(data2int)
-print(data2)
-CRCs = calculate_crc(data2)
-data2int.append(CRCs)
-
-print(data2int)
 
 
-message = can.Message(arbitration_id=arbitration_id, data=data2int[1:], is_extended_id=False)
-print(message)
+# message = can.Message(arbitration_id=arbitration_id, data=fullcommand[1:], is_extended_id=False)
+message = genMove1Command(1,-360, 600, 2)
+# message = genMove2Command(1,-180, 600, 2)
 bus.send(message)
