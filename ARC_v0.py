@@ -5,6 +5,58 @@ import time
 def getAxisPos(axis_id):
     print('n/a')
 
+def confMotorEnLimRemp(bus,axis_id,enable):
+    # Remap motor limits
+    cmd = 158
+    fullcommand = []
+    fullcommand.append(axis_id)
+    fullcommand.append(cmd)
+    fullcommand.append(enable)
+    fullcommand.append(calculate_crc(fullcommand))
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
+                print('Limit remap success!')
+                break
+
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0):
+                print('Limit remap failed!')
+                break
+
+def confMotorHomeSeq(bus,axis_id,homeTrig,homeDir,homeSpd,endLimitEN):
+    # Remap motor limits
+    cmd = 144
+    fullcommand = []
+    fullcommand.append(axis_id)
+    fullcommand.append(cmd)
+    fullcommand.append(homeTrig)
+    fullcommand.append(homeDir)
+    res1 = [homeSpd>>(8*(i-1)) & 0xFF for i in range(2,0,-1)]
+    fullcommand += res1
+    fullcommand.append(endLimitEN)
+    print(fullcommand)
+    fullcommand.append(calculate_crc(fullcommand))
+    
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
+                print('Home config success!')
+                break
+
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0):
+                print('Home config failed!')
+                break
+
 def genMove1Command(axis_id,pos, speed, acc):
     pos = int((pos*16384)/360)
     if pos < 0:
@@ -29,9 +81,7 @@ def genMove1Command(axis_id,pos, speed, acc):
     while True:
         received_msg = bus.recv(timeout=3) 
         if received_msg is not None:
-            received_data_bytes = ', '.join([f'0x{byte:02X}' for byte in received_msg.data])
-            # print(f"Received: arbitration_id=0x{received_msg.arbitration_id:X}, data=[{received_data_bytes}], is_extended_id=False")
-             # Check if the received message is from an expected motor and check if motor has started running
+            
             if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
                 motorStart = True
             # Check if the received message is from an expected motor, check if motor has started running, and check if motor has finished running    
@@ -40,7 +90,7 @@ def genMove1Command(axis_id,pos, speed, acc):
             if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0) and motorStart:
                 print('home failed')
                 break
-            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0) and motorStart:
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 3) and motorStart:
                 print('FAULT: limit reached')
                 break
 
@@ -58,9 +108,7 @@ def sendhome(bus,axis_id):
     while True:
         received_msg = bus.recv(timeout=3) 
         if received_msg is not None:
-            received_data_bytes = ', '.join([f'0x{byte:02X}' for byte in received_msg.data])
-            # print(f"Received: arbitration_id=0x{received_msg.arbitration_id:X}, data=[{received_data_bytes}], is_extended_id=False")
-             # Check if the received message is from an expected motor and check if motor has started running
+
             if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
                 motorStart = True
             # Check if the received message is from an expected motor, check if motor has started running, and check if motor has finished running    
@@ -80,19 +128,28 @@ bus = can.interface.Bus(bustype='slcan', channel='COM3', bitrate=500000)
 
 
 # message = can.Message(arbitration_id=arbitration_id, data=fullcommand[1:], is_extended_id=False)
-# message = genMove1Command(1, 10, 3000, 255)
+# message = genMove1Command(4, 1, 3000, 255)
 # message = genMove2Command(1,-180, 600, 2)
-sendhome(bus,1)
-for i in range(20):
-    genMove1Command(1, 100, 3000, 255)
-    genMove1Command(1, 150, 3000, 255)
-for i in range(20):
-    genMove1Command(1, 50, 3000, 255)
-    genMove1Command(1, 200, 3000, 255)
-for i in range(20):
-    genMove1Command(1, 10, 3000, 255)
-    genMove1Command(1, 260, 3000, 255)
 
+sendhome(bus,4)
+for i in range(20):
+    genMove1Command(4, 100, 3000, 255)
+    genMove1Command(4, 150, 3000, 255)
+for i in range(20):
+    genMove1Command(4, 50, 3000, 255)
+    genMove1Command(4, 200, 3000, 255)
+for i in range(20):
+    genMove1Command(4, 10, 3000, 255)
+    genMove1Command(4, 260, 3000, 255)
+
+# confMotorHomeSeq(bus,4,0,0,30,1)
+# sendhome(bus,4)
+
+
+
+
+bus.shutdown()
+# confMotorEnLimRemp(bus,4,1)
 
 # genMove1Command(1, 10, 200, 255)
 # genMove1Command(1, 200, 200, 255)
