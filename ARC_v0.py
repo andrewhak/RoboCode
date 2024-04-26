@@ -5,6 +5,30 @@ import time
 def getAxisPos(axis_id):
     print('n/a')
 
+def confMotorCurrent(bus,axis_id,current):
+    # Set motor Current
+    cmd = 131
+    fullcommand = []
+    fullcommand.append(axis_id)
+    fullcommand.append(cmd)
+    fullcommand += [current>>(8*(i-1)) & 0xFF for i in range(2,0,-1)]
+    fullcommand.append(calculate_crc(fullcommand))
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
+                print('Current on motor', axis_id, 'set to', current)
+                break
+
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0):
+                print('Set current failed')
+                break
+
+
 def confMotorEnLimRemp(bus,axis_id,enable):
     # Remap motor limits
     cmd = 158
@@ -118,7 +142,6 @@ def sendhome(bus,axis_id):
                 print('home failed')
                 break
 
-
 def calculate_crc(data):
     crc = sum(data) & 0xFF
     return crc
@@ -131,22 +154,22 @@ bus = can.interface.Bus(bustype='slcan', channel='COM3', bitrate=500000)
 # message = genMove1Command(4, 1, 3000, 255)
 # message = genMove2Command(1,-180, 600, 2)
 
-sendhome(bus,4)
+""" sendhome(bus,1)
 for i in range(20):
-    genMove1Command(4, 100, 3000, 255)
-    genMove1Command(4, 150, 3000, 255)
+    genMove1Command(1, 100, 3000, 255)
+    genMove1Command(1, 150, 3000, 255)
 for i in range(20):
-    genMove1Command(4, 50, 3000, 255)
-    genMove1Command(4, 200, 3000, 255)
+    genMove1Command(1, 50, 3000, 255)
+    genMove1Command(1, 200, 3000, 255)
 for i in range(20):
-    genMove1Command(4, 10, 3000, 255)
-    genMove1Command(4, 260, 3000, 255)
+    genMove1Command(1, 10, 3000, 255)
+    genMove1Command(1, 260, 3000, 255) """
 
 # confMotorHomeSeq(bus,4,0,0,30,1)
 # sendhome(bus,4)
 
 
-
+confMotorCurrent(bus,1,3200)
 
 bus.shutdown()
 # confMotorEnLimRemp(bus,4,1)
