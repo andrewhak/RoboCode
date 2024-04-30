@@ -28,6 +28,36 @@ def confMotorCurrent(bus,axis_id,current):
                 print('Set current failed')
                 break
 
+def confMotorDir(bus,axis_id,dir):
+    # dir = 00 CW 
+    # dir = 01 CCW
+    # Set Motor Direction
+    cmd = 134
+    fullcommand = []
+    fullcommand.append(axis_id)
+    fullcommand.append(cmd)
+    fullcommand.append(dir)
+    fullcommand.append(calculate_crc(fullcommand))
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
+                if(dir == 0):
+                    direction = 'CW'
+                else:
+                    direction = 'CCW'
+
+                print('Motor',axis_id, 'set to', direction)
+                break
+
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0):
+                print('Limit remap failed!')
+                break
+
 
 def confMotorEnLimRemp(bus,axis_id,enable):
     # Remap motor limits
@@ -154,7 +184,7 @@ bus = can.interface.Bus(bustype='slcan', channel='COM3', bitrate=500000)
 # message = genMove1Command(4, 1, 3000, 255)
 # message = genMove2Command(1,-180, 600, 2)
 
-""" sendhome(bus,1)
+sendhome(bus,1)
 for i in range(20):
     genMove1Command(1, 100, 3000, 255)
     genMove1Command(1, 150, 3000, 255)
@@ -163,13 +193,14 @@ for i in range(20):
     genMove1Command(1, 200, 3000, 255)
 for i in range(20):
     genMove1Command(1, 10, 3000, 255)
-    genMove1Command(1, 260, 3000, 255) """
+    genMove1Command(1, 260, 3000, 255)
 
 # confMotorHomeSeq(bus,4,0,0,30,1)
 # sendhome(bus,4)
 
 
-confMotorCurrent(bus,1,3200)
+# confMotorCurrent(bus,1,3200)
+# confMotorDir(bus, 1,0)
 
 bus.shutdown()
 # confMotorEnLimRemp(bus,4,1)
