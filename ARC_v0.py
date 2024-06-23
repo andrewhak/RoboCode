@@ -1,6 +1,8 @@
 import can
 import time
 
+import can.interface
+
 
 def getAxisPos(axis_id):
     print('n/a')
@@ -57,7 +59,6 @@ def confMotorDir(bus,axis_id,dir):
             if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0):
                 print('Limit remap failed!')
                 break
-
 
 def confMotorEnLimRemp(bus,axis_id,enable):
     # Remap motor limits
@@ -177,14 +178,14 @@ def calculate_crc(data):
     return crc
 
 
-bus = can.interface.Bus(bustype='slcan', channel='COM3', bitrate=500000)
+bus = can.interface.Bus(interface='slcan', channel='COM3', bitrate=500000)
 
 
 # message = can.Message(arbitration_id=arbitration_id, data=fullcommand[1:], is_extended_id=False)
 # message = genMove1Command(4, 1, 3000, 255)
 # message = genMove2Command(1,-180, 600, 2)
 
-sendhome(bus,1)
+""" sendhome(bus,1)
 for i in range(20):
     genMove1Command(1, 100, 3000, 255)
     genMove1Command(1, 150, 3000, 255)
@@ -193,10 +194,21 @@ for i in range(20):
     genMove1Command(1, 200, 3000, 255)
 for i in range(20):
     genMove1Command(1, 10, 3000, 255)
-    genMove1Command(1, 260, 3000, 255)
+    genMove1Command(1, 260, 3000, 255) """
 
-# confMotorHomeSeq(bus,4,0,0,30,1)
-# sendhome(bus,4)
+# confMotorHomeSeq(bus,2,0,0,200,1)
+# confMotorDir(bus,2,0)
+# sendhome(bus,1)
+# sendhome(bus,2)
+genMove1Command(1, 1000, 200, 240)
+for i in range(10):
+    genMove1Command(2, -18000, 2000, 240)
+    genMove1Command(2, -20000, 2000, 255)
+
+
+
+# genMove1Command(1, 10, 200, 255)
+# genMove1Command(1, 3000, 200, 255)
 
 
 # confMotorCurrent(bus,1,3200)

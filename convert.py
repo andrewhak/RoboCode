@@ -5,7 +5,7 @@ import re
 # -------------------
 
 # Gearbox ratios for each motor
-gear_ratios = [0.45042189517514738805347675656198, 1, 1, 1, 1, 1]  # Replace with your actual gearbox ratios
+gear_ratios = [0.45042189517514738805347675656198, 0.45042189517514738805347675656198, 1, 1, 1, 1]  # Replace with your actual gearbox ratios
 
 # Direction inversion for each motor (True/False)
 invert_direction = [True, True, False, False, False, False]  # Set True for motors where direction should be inverted
