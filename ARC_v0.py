@@ -4,8 +4,63 @@ import time
 import can.interface
 
 
-def getAxisPos(axis_id):
-    print('n/a')
+def readEncoderValueCarry(axis_id):
+    cmd = 48
+    fullcommand = [axis_id,cmd]
+    fullcommand.append(calculate_crc(fullcommand))
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            Carry = int.from_bytes(received_msg.data[1:5], 'big', signed=True)
+            Value = int.from_bytes(received_msg.data[5:7], 'big', signed=False)
+            Result = (Carry*16384) + Value
+            print(round(((Result*360)/16384), 2))
+            break
+
+def readEncoderValueAdd(axis_id):
+    cmd = 49
+    fullcommand = [axis_id,cmd]
+    fullcommand.append(calculate_crc(fullcommand))
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            Value = int.from_bytes(received_msg.data[1:7], 'big',signed=True)
+            print(round(((Value*360)/16384), 2))
+            break
+
+def readPulses(axis_id):
+    cmd = 51
+    fullcommand = [axis_id,cmd]
+    fullcommand.append(calculate_crc(fullcommand))
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            Value = int.from_bytes(received_msg.data[1:5], 'big',signed=True)
+            print(Value)
+            break
+
+def readIO(axis_id):
+    cmd = 52
+    fullcommand = [axis_id,cmd]
+    fullcommand.append(calculate_crc(fullcommand))
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            Value = bin(received_msg.data[1])[2:].zfill(8)
+            print(Value)
+            print("IN_1:  " + str(bool(int(Value[7]))))
+            print("IN_2:  " + str(bool(int(Value[6]))))
+            print("OUT_1: " + str(bool(int(Value[5]))))
+            print("OUT_2: " + str(bool(int(Value[4]))))
+            break
 
 def confMotorCurrent(bus,axis_id,current):
     # Set motor Current
@@ -196,14 +251,23 @@ for i in range(20):
     genMove1Command(1, 10, 3000, 255)
     genMove1Command(1, 260, 3000, 255) """
 
-# confMotorHomeSeq(bus,2,0,0,200,1)
+# confMotorHomeSeq(bus,3,0,1,100,1)
 # confMotorDir(bus,2,0)
 # sendhome(bus,1)
 # sendhome(bus,2)
-genMove1Command(1, 1000, 200, 240)
-for i in range(10):
-    genMove1Command(2, -18000, 2000, 240)
-    genMove1Command(2, -20000, 2000, 255)
+
+# genMove1Command(1, 10, 200, 10)
+# readEncoderValueCarry(1)
+# readEncoderValueAdd(1)
+
+# confMotorEnLimRemp(bus,3,1)
+# sendhome(bus,3)
+
+
+genMove1Command(3, 3000, 200, 10)
+# for i in range(10):
+#     genMove1Command(2, -18000, 2000, 240)
+#     genMove1Command(2, -20000, 2000, 255)
 
 
 
