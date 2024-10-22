@@ -15,9 +15,10 @@ def get_joystick_values():
 def get_button_inputs():
     pygame.event.pump()
     buttons = {}
+    dpad = joystick.get_hat(0)
     for i in range(joystick.get_numbuttons()):
         buttons[i] = joystick.get_button(i)
-    return buttons
+    return buttons, dpad
 
 def readEncoderValueCarry(axis_id):
     cmd = 48
@@ -314,11 +315,15 @@ bus = can.interface.Bus(interface='slcan', channel='COM3', bitrate=500000)
 speed = 0
 Acceleration = 0
 elapsed_time = 0.1
-MaxSpeed = 200
+ArmMaxSpeed = 5.0
+GearRatios = [1.0,13.5,150.0,150.0,48.0,67.82,67.82]
 axisSel = 1
 joysel = 0
-ons1 = False
-ons2 = False
+ons = [False]*10
+prevJ = 0.0
+dpad = 0
+
+
 # Initialize pygame
 pygame.init()
 
@@ -331,59 +336,73 @@ joystick.init()
 try:
     while True:
         # Recieve Inputs
-        start_time = time.time()
         x, y, z = get_joystick_values()
-        buttons = get_button_inputs()
+        buttons, dpad = get_button_inputs()
 
-
+        # select Joystick axis
         if axisSel == 1:
             joysel = x
         elif axisSel == 2 or 3:
             joysel = y
 
 
-        speed = int(abs(joysel)*MaxSpeed)
-        # print(speed)
+        speed = int(((abs(joysel)-.01)/0.99)*ArmMaxSpeed*GearRatios[axisSel])
         Acceleration = abs(x)*10
 
+        if prevJ != joysel:
+            if 0.01 < joysel:
 
-        if 0.01 < joysel:
-            # print(speed)
-            # sendMove3Command(1, distance, int(speed), 1)
-            sendmoveSpeed(axisSel,1,speed,0)
-        elif -0.01 > joysel:
-            # print(speed)
-            # sendMove3Command(1, distance, int(speed), 1)
-            sendmoveSpeed(axisSel,0,speed,0)
-        else:
-            sendmoveSpeed(1,0,0,0)
-            sendmoveSpeed(2,0,0,0)
-            sendmoveSpeed(3,0,0,0)
+                sendmoveSpeed(axisSel,1,speed,0)
+            elif -0.01 > joysel:
+                sendmoveSpeed(axisSel,0,speed,0)
+            else:
+                sendmoveSpeed(1,0,0,0)
+                sendmoveSpeed(2,0,0,0)
+                sendmoveSpeed(3,0,0,0)
+        
+        # Sel
+        if buttons[1] == False and ons[1] ==True:
+            ons[1] = False
+        if buttons[2] == False and ons[2] ==True:
+            ons[2] = False
+        if dpad[1] == 0 and ons[3] ==True:
+            ons[3] = False
+        if dpad[1] == 0 and ons[4] ==True:
+            ons[4] = False
+        
+        # print(buttons)
 
-        if buttons[1] == False and ons1 ==True:
-            ons1 = False
-        if buttons[2] == False and ons2 ==True:
-            ons2 = False
-
-        if buttons[1] and not buttons[2]and ons1 == False:
+        if buttons[1] and not buttons[2]and ons[1] == False:
             # sendMove3Command(1, 100, 100, 5)
             if axisSel < 3:
                 axisSel += 1
-            ons1 = True
+            ons[1] = True
             print(axisSel)
 
-        elif buttons[2]and not buttons[1] and ons2 == False:
+        elif buttons[2]and not buttons[1] and ons[2] == False:
             # sendMove3Command(1, -100, 100, 5)
             if axisSel > 1:
                 axisSel -= 1
-            ons2 = True
+            ons[2] = True
             print(axisSel)
-        
+
+        if dpad[1] == 1 and ons[3] == False:
+            if ArmMaxSpeed < 15:
+                ArmMaxSpeed += 1
+            ons[3] = True
+            print(ArmMaxSpeed)
+            print(int(ArmMaxSpeed*GearRatios[axisSel]))
+        elif dpad[1] == -1 and ons[4] == False:
+            if ArmMaxSpeed > 0:
+                ArmMaxSpeed -= 1
+            ons[4] = True
+            print(int(ArmMaxSpeed*GearRatios[axisSel]))
+
+
         if not (buttons[1] or buttons[2] or 0.1 < x or -0.1 > x):
             time.sleep(0.1)
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        # print(f"Elapsed time: {elapsed_time:.2f} seconds")
+
+        prevJ = joysel
 
 except KeyboardInterrupt:
     print("Program terminated.")
