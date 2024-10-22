@@ -1,8 +1,23 @@
 import can
 import time
-
+import pygame
+import time
 import can.interface
 
+def get_joystick_values():
+    pygame.event.pump()
+    x_axis = joystick.get_axis(0)
+    y_axis = joystick.get_axis(1)
+    z_axis = joystick.get_axis(2)
+    return x_axis, y_axis, z_axis
+
+# Function to get button inputs
+def get_button_inputs():
+    pygame.event.pump()
+    buttons = {}
+    for i in range(joystick.get_numbuttons()):
+        buttons[i] = joystick.get_button(i)
+    return buttons
 
 def readEncoderValueCarry(axis_id):
     cmd = 48
@@ -29,7 +44,7 @@ def readEncoderValueAdd(axis_id):
         received_msg = bus.recv(timeout=3) 
         if received_msg is not None:
             Value = int.from_bytes(received_msg.data[1:7], 'big',signed=True)
-            print(round(((Value*360)/16384), 2))
+            print('Axis' + str(axis_id) + ' Encoder Value: ' + str(round(((Value*360)/16384), 2)))
             break
 
 def readPulses(axis_id):
@@ -183,7 +198,7 @@ def genMove1Command(axis_id,pos, speed, acc):
     res2 = [pos>>(8*(i-1)) & 0xFF for i in range(3,0,-1)]
     fullcommand += (res2)
     fullcommand.append(calculate_crc(fullcommand))
-    # print(fullcommand)
+    print(fullcommand)
     message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
     bus.send(message)
 
@@ -201,7 +216,67 @@ def genMove1Command(axis_id,pos, speed, acc):
                 print('home failed')
                 break
             if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 3) and motorStart:
-                print('FAULT: limit reached')
+                print('FAULT: Axis' + str(axis_id) + ' limit reached')
+                break
+
+
+def sendmoveSpeed(axis_id,dir,speed,acc):
+    byte2 = (dir << 7) | (speed >> 8)
+    byte3 = speed & 0xFF
+    fullcommand = [axis_id,246,byte2,byte3,acc]
+    fullcommand.append(calculate_crc(fullcommand))
+    # print(fullcommand)
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            # print(received_msg)
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0):
+                # print("Run fail")
+                break
+            # Check if the received message is from an expected motor, check if motor has started running    
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
+                # print("Run sucess")
+                break
+ 
+
+
+def sendMove3Command(axis_id,pos, speed, acc):
+    pos = int((pos*16384)/360)
+    if pos < 0:
+        pos = (abs(pos) ^ 0xFFFFFF) + 1
+
+    cmd = 244
+
+    fullcommand = []
+    fullcommand.append(axis_id)
+    fullcommand.append(cmd)
+    res1 = [speed>>(8*(i-1)) & 0xFF for i in range(2,0,-1)]
+    fullcommand += (res1)
+    fullcommand.append(acc)
+    res2 = [pos>>(8*(i-1)) & 0xFF for i in range(3,0,-1)]
+    fullcommand += (res2)
+    fullcommand.append(calculate_crc(fullcommand))
+    print(fullcommand)
+    message = can.Message(arbitration_id=axis_id, data=fullcommand[1:], is_extended_id=False)
+    bus.send(message)
+
+    motorStart = False
+    while True:
+        received_msg = bus.recv(timeout=3) 
+        if received_msg is not None:
+            
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 1):
+                motorStart = True
+            # Check if the received message is from an expected motor, check if motor has started running, and check if motor has finished running    
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 2) and motorStart:
+                break
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 0) and motorStart:
+                print('home failed')
+                break
+            if (received_msg.arbitration_id == axis_id) and (received_msg.data[1] == 3) and motorStart:
+                print('FAULT: Axis' + str(axis_id) + ' limit reached')
                 break
 
 def sendhome(bus,axis_id):
@@ -232,57 +307,90 @@ def calculate_crc(data):
     crc = sum(data) & 0xFF
     return crc
 
-
+# Start can bus
 bus = can.interface.Bus(interface='slcan', channel='COM3', bitrate=500000)
 
+# Initialize variables
+speed = 0
+Acceleration = 0
+elapsed_time = 0.1
+MaxSpeed = 200
+axisSel = 1
+joysel = 0
+ons1 = False
+ons2 = False
+# Initialize pygame
+pygame.init()
 
-# message = can.Message(arbitration_id=arbitration_id, data=fullcommand[1:], is_extended_id=False)
-# message = genMove1Command(4, 1, 3000, 255)
-# message = genMove2Command(1,-180, 600, 2)
+# Set up the Xbox controller
+pygame.joystick.init()
+joystick = pygame.joystick.Joystick(0)
+joystick.init()
 
-""" sendhome(bus,1)
-for i in range(20):
-    genMove1Command(1, 100, 3000, 255)
-    genMove1Command(1, 150, 3000, 255)
-for i in range(20):
-    genMove1Command(1, 50, 3000, 255)
-    genMove1Command(1, 200, 3000, 255)
-for i in range(20):
-    genMove1Command(1, 10, 3000, 255)
-    genMove1Command(1, 260, 3000, 255) """
-
-# confMotorHomeSeq(bus,3,0,1,100,1)
-# confMotorDir(bus,2,0)
-# sendhome(bus,1)
-# sendhome(bus,2)
-
-# genMove1Command(1, 10, 200, 10)
-# readEncoderValueCarry(1)
-# readEncoderValueAdd(1)
-
-# confMotorEnLimRemp(bus,3,1)
-# sendhome(bus,3)
+# Main Loop
+try:
+    while True:
+        # Recieve Inputs
+        start_time = time.time()
+        x, y, z = get_joystick_values()
+        buttons = get_button_inputs()
 
 
-genMove1Command(3, 3000, 200, 10)
-# for i in range(10):
-#     genMove1Command(2, -18000, 2000, 240)
-#     genMove1Command(2, -20000, 2000, 255)
+        if axisSel == 1:
+            joysel = x
+        elif axisSel == 2 or 3:
+            joysel = y
 
 
+        speed = int(abs(joysel)*MaxSpeed)
+        # print(speed)
+        Acceleration = abs(x)*10
 
-# genMove1Command(1, 10, 200, 255)
-# genMove1Command(1, 3000, 200, 255)
+
+        if 0.01 < joysel:
+            # print(speed)
+            # sendMove3Command(1, distance, int(speed), 1)
+            sendmoveSpeed(axisSel,1,speed,0)
+        elif -0.01 > joysel:
+            # print(speed)
+            # sendMove3Command(1, distance, int(speed), 1)
+            sendmoveSpeed(axisSel,0,speed,0)
+        else:
+            sendmoveSpeed(1,0,0,0)
+            sendmoveSpeed(2,0,0,0)
+            sendmoveSpeed(3,0,0,0)
+
+        if buttons[1] == False and ons1 ==True:
+            ons1 = False
+        if buttons[2] == False and ons2 ==True:
+            ons2 = False
+
+        if buttons[1] and not buttons[2]and ons1 == False:
+            # sendMove3Command(1, 100, 100, 5)
+            if axisSel < 3:
+                axisSel += 1
+            ons1 = True
+            print(axisSel)
+
+        elif buttons[2]and not buttons[1] and ons2 == False:
+            # sendMove3Command(1, -100, 100, 5)
+            if axisSel > 1:
+                axisSel -= 1
+            ons2 = True
+            print(axisSel)
+        
+        if not (buttons[1] or buttons[2] or 0.1 < x or -0.1 > x):
+            time.sleep(0.1)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        # print(f"Elapsed time: {elapsed_time:.2f} seconds")
+
+except KeyboardInterrupt:
+    print("Program terminated.")
+
+finally:
+    pygame.quit()
+    bus.shutdown()
 
 
-# confMotorCurrent(bus,1,3200)
-# confMotorDir(bus, 1,0)
-
-bus.shutdown()
-# confMotorEnLimRemp(bus,4,1)
-
-# genMove1Command(1, 10, 200, 255)
-# genMove1Command(1, 200, 200, 255)
-
-#bus.send(message)
 
